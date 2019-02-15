@@ -3,30 +3,47 @@
 #include <dbg.h>
 
 #define HELP "./help"
+#define HELP_FLAG "--help"
 
-void show_help()
+char* read_file(char *filename, size_t size)
 {
 	int rc;
-	FILE *helpf = fopen(HELP, "r");
+	FILE *file = fopen(filename, "r");
 	// make sure file opened succesfully
-	check(helpf != NULL, "Failed to open help file.");
+	check(file != NULL, "Failed to open file %s", filename);
 	// get the length of the file by moving cursor to end then reading cursor position
-	fseek(helpf, 0, SEEK_END);
-	long int length = ftell(helpf);
-	rewind(helpf);
+	fseek(file, 0, SEEK_END);
+	long int length = ftell(file) / size;
+	// make sure to move cursor back to start
+	rewind(file);
 	
-	// allocate help file and read
-	char *help = calloc(length, sizeof(char));
-	rc = fread(help, sizeof(char), length, helpf);
+	// allocate memory for file and read
+	char *out = calloc(length, size);
+	rc = fread(out, size, length, file);
 	// make sure expected number of bytes were read
-	check(rc == length, "Failed to read help file.");
+	check(rc == length, "Failed to read file %s", filename);
 	
-	printf(help);
-	free(help);
+	fflush(file);
+	fclose(file);
+	return out;
 
 error:
-	fflush(helpf);
-	fclose(helpf);
+	
+	fflush(file);
+	fclose(file);
+	return NULL;
+}
+
+int show_help()
+{
+	char *help = read_file(HELP, sizeof(char));
+	printf(help);
+	free(help);
+	return 0;
+
+error:
+	free(help);
+	return -1;
 }
 
 int main(int argc, char *argv[])
