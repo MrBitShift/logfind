@@ -57,51 +57,44 @@ error:
 int process_args(int argc, char *argv[])
 {
 	int i;
-	int searches_count;
+	int searches_count = 0;
 	// default search logic is and
 	enum Flag flag = And;
-	// set length of searches and allocate
-	searches_count = argc - 1;
-	char **searches = calloc(searches_count, sizeof(int));
+	// allocate
+	char **searches = calloc(argc, sizeof(char*));
 	for (i = 1; i < argc; i++)
 	{
 		if (strcmp(argv[i], HELP_FLAG) == 0)
 		{
 			show_help();
 			i = argc;
+			break;
 		}
 		
 		else if (strcmp(argv[i], OR_FLAG) == 0)
 		{
 			flag = Or;
 			i = argc;
+			break;
 		}
 		
 		else if (strcmp(argv[i], AND_FLAG) == 0)
 		{
 			flag = And;
 			i = argc;
+			break;
 		}
 		
 		else
 		{
-			// assign value to searches
-			searches[i - 1] = argv[i];
-		}
-	}
-	// trim excess values from searches
-	for (i = 0; i < searches_count; i++)
-	{
-		if (searches[i] == NULL)
-		{
-			searches = realloc(searches, i);
-			searches_count = i;
-			break;
+			// increment searches_count and assign value to searches
+			searches_count++;
+			searches[searches_count - 1] = argv[i];
 		}
 	}
 	
 	// now that excess is trimmed, print values
-	printf("Inputted args: \n");
+	printf("Processed args: \n");
 	for (i = 0; i < searches_count; i++)
 	{
 		printf("\t%s\n", searches[i]);
@@ -118,6 +111,7 @@ int process_args(int argc, char *argv[])
 	{
 		printf("Logic flag is or.\n");
 	}
+	free(searches);
 	return 0;
 error:
 	free(searches);
@@ -125,6 +119,14 @@ error:
 
 int main(int argc, char *argv[])
 {
+	int i;
+	printf("All received args:\n");
+	for (i = 0; i < argc; i++)
+	{
+		printf("\t%s\n", argv[i]);
+	}
+	// add final new line
+	printf("\n");
 	process_args(argc, argv);
 	return 0;
 error:
