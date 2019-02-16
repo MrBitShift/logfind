@@ -45,7 +45,7 @@ error:
 int show_help()
 {
 	char *help = read_file(HELP, sizeof(char));
-	printf(help);
+	printf("\n%s\n", help);
 	free(help);
 	return 0;
 
@@ -67,21 +67,21 @@ int process_args(int argc, char *argv[])
 		if (strcmp(argv[i], HELP_FLAG) == 0)
 		{
 			show_help();
-			i = argc;
+			exit(0);
 			break;
 		}
 		
 		else if (strcmp(argv[i], OR_FLAG) == 0)
 		{
 			flag = Or;
-			i = argc;
+			i++;
 			break;
 		}
 		
 		else if (strcmp(argv[i], AND_FLAG) == 0)
 		{
 			flag = And;
-			i = argc;
+			i++;
 			break;
 		}
 		
@@ -91,6 +91,17 @@ int process_args(int argc, char *argv[])
 			searches_count++;
 			searches[searches_count - 1] = argv[i];
 		}
+	}
+	
+	// check to make sure that there aren't extra args trailing after logic switch
+	if (i != argc) {
+		show_help();
+		exit(0);
+	} // check to make sure that there were search terms given
+	else if (searches_count < 1)
+	{
+		show_help();
+		exit(0);
 	}
 	
 	// now that excess is trimmed, print values
@@ -115,21 +126,14 @@ int process_args(int argc, char *argv[])
 	return 0;
 error:
 	free(searches);
+	return -1;
 }
 
 int main(int argc, char *argv[])
 {
-	int i;
-	printf("All received args:\n");
-	for (i = 0; i < argc; i++)
-	{
-		printf("\t%s\n", argv[i]);
-	}
-	// add final new line
-	printf("\n");
 	process_args(argc, argv);
 	return 0;
 error:
 	
-	return -1;
+	return 1;
 }
