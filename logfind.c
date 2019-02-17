@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <dbg.h>
 #include <string.h>
+#include <unistd.h>
 
 #define HELP "./help"
 #define HELP_FLAG "--help"
 #define AND_FLAG "-a"
 #define OR_FLAG "-o"
+#define LOGFIND "/home/pi/.logfind"
 
 enum Flag
 {
@@ -38,8 +40,11 @@ char* read_file(char *filename, size_t size, int *returncode)
 
 error:
 	
-	fflush(file);
-	fclose(file);
+	if (file != NULL)
+	{
+		fflush(file);
+		fclose(file);
+	}
 	*returncode = 1;
 	return NULL;
 }
@@ -57,7 +62,25 @@ int show_help()
 error:
 	free(help);
 	free(rc);
-	return -1;
+	return 1;
+}
+
+int search(char **terms, enum Flag logic)
+{
+	// initialize stuff
+	int *rc = calloc(1, sizeof(int));
+	char *logfind = read_file(LOGFIND, sizeof(char), rc);
+	check(logfind != NULL, "Make sure to create file ~/.logfind");
+	printf("%s contents:\n%s", LOGFIND, logfind);
+	
+	free(rc);
+	free(logfind);
+	return 0;
+	
+error:
+	free(rc);
+	free(logfind);
+	return 1;
 }
 
 int process_args(int argc, char *argv[])
@@ -128,6 +151,9 @@ int process_args(int argc, char *argv[])
 	{
 		printf("Logic flag is or.\n");
 	}
+	
+	// call search
+	search(searches, flag);
 	
 	free(searches);
 	return 0;
