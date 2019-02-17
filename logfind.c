@@ -4,8 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#define HELP "./help"
-#define INCORRECT "./incorrect"
+#define HELP "./.help"
+#define INCORRECT "./.incorrect"
 #define HELP_FLAG "--help"
 #define AND_FLAG "-a"
 #define OR_FLAG "-o"
@@ -16,7 +16,7 @@ enum Flag
 	And, Or
 };
 
-void* read_file(char *filename, size_t size, int *returncode)
+void* read_file(char *filename, size_t size)
 {
 	// initialize stuff
 	int rc;
@@ -39,7 +39,6 @@ void* read_file(char *filename, size_t size, int *returncode)
 	
 	fflush(file);
 	fclose(file);
-	*returncode = 0;
 	return out;
 
 error:
@@ -49,43 +48,34 @@ error:
 		fflush(file);
 		fclose(file);
 	}
-	*returncode = 1;
 	return NULL;
 }
 
 int show_incorrect()
 {
-	int *rc = calloc(1, sizeof(int));
-	char *incorrect = read_file(INCORRECT, sizeof(char), rc);
-	int stackrc = *rc;
-	check(stackrc == 0, "Cannot open incorrect usage file.");
+	char *incorrect = read_file(INCORRECT, sizeof(char));
+	check(incorrect != NULL, "Cannot open incorrect usage file.");
 	
 	printf("\n%s\n", incorrect);
 	free(incorrect);
-	free(rc);
-	return stackrc;
+	return 0;
 	
 error:
 	free(incorrect);
-	free(rc);
 	return 1;
 }
 
 int show_help()
 {
-	int *rc = calloc(1, sizeof(int));
-	char *help = read_file(HELP, sizeof(char), rc);
-	int stackrc = *rc;
-	check(stackrc == 0, "Cannot open help file.");
+	char *help = read_file(HELP, sizeof(char));
+	check(help != NULL, "Cannot open help file.");
 	
 	printf("\n%s\n", help);
 	free(help);
-	free(rc);
-	return stackrc;
+	return 0;
 
 error:
 	free(help);
-	free(rc);
 	return 1;
 }
 
@@ -93,7 +83,6 @@ int search(char **terms, enum Flag logic)
 {
 	// initialize stuff
 	int i;
-	int *rc = calloc(1, sizeof(int));
 	char *logfind;
 	char *filename;
 	
@@ -114,7 +103,7 @@ int search(char **terms, enum Flag logic)
 	printf("\n");
 	
 	// read file, check its good and then print
-	logfind = read_file(LOGFIND, sizeof(char), rc);
+	logfind = read_file(LOGFIND, sizeof(char));
 	check(logfind != NULL, "Make sure to create file %s", LOGFIND);
 	printf("%s contents:\n%s\n", LOGFIND, logfind);
 	
@@ -132,12 +121,10 @@ int search(char **terms, enum Flag logic)
 	}
 	
 	// clean up
-	free(rc);
 	free(logfind);
 	return 0;
 	
 error:
-	free(rc);
 	free(logfind);
 	return 1;
 }
@@ -187,7 +174,7 @@ int process_args(int argc, char *argv[])
 	// check to make sure that there aren't extra args trailing after logic switch
 	// and check to make sure that there were search terms given
 	if ((i != argc) || (searches_count < 1)) {
-		rc = show_help();
+		rc = show_incorrect();
 		free(searches);
 		return rc;
 	}
