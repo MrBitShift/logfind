@@ -13,7 +13,7 @@ enum Flag
 	And, Or
 };
 
-char* read_file(char *filename, size_t size)
+char* read_file(char *filename, size_t size, int *returncode)
 {
 	int rc;
 	FILE *file = fopen(filename, "r");
@@ -33,21 +33,24 @@ char* read_file(char *filename, size_t size)
 	
 	fflush(file);
 	fclose(file);
+	*returncode = 0;
 	return out;
 
 error:
 	
 	fflush(file);
 	fclose(file);
+	*returncode = 1;
 	return NULL;
 }
 
 int show_help()
 {
-	char *help = read_file(HELP, sizeof(char));
+	int *rc = calloc(1, sizeof(int));
+	char *help = read_file(HELP, sizeof(char), rc);
 	printf("\n%s\n", help);
 	free(help);
-	return 0;
+	return *rc;
 
 error:
 	free(help);
@@ -57,6 +60,7 @@ error:
 int process_args(int argc, char *argv[])
 {
 	int i;
+	int rc;
 	int searches_count = 0;
 	// default search logic is and
 	enum Flag flag = And;
@@ -66,8 +70,10 @@ int process_args(int argc, char *argv[])
 	{
 		if (strcmp(argv[i], HELP_FLAG) == 0)
 		{
-			show_help();
-			exit(0);
+			int rc;
+			rc = show_help();
+			free(searches);
+			return rc;
 			break;
 		}
 		
@@ -94,14 +100,11 @@ int process_args(int argc, char *argv[])
 	}
 	
 	// check to make sure that there aren't extra args trailing after logic switch
-	if (i != argc) {
-		show_help();
-		exit(0);
-	} // check to make sure that there were search terms given
-	else if (searches_count < 1)
-	{
-		show_help();
-		exit(0);
+	// and check to make sure that there were search terms given
+	if ((i != argc) || (searches_count < 1)) {
+		rc = show_help();
+		free(searches);
+		return rc;
 	}
 	
 	// now that excess is trimmed, print values
@@ -122,11 +125,12 @@ int process_args(int argc, char *argv[])
 	{
 		printf("Logic flag is or.\n");
 	}
+	
 	free(searches);
 	return 0;
 error:
 	free(searches);
-	return -1;
+	return 1;
 }
 
 int main(int argc, char *argv[])
