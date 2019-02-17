@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #define HELP "./help"
+#define INCORRECT "./incorrect"
 #define HELP_FLAG "--help"
 #define AND_FLAG "-a"
 #define OR_FLAG "-o"
@@ -15,9 +16,12 @@ enum Flag
 	And, Or
 };
 
-char* read_file(char *filename, size_t size, int *returncode)
+void* read_file(char *filename, size_t size, int *returncode)
 {
+	// initialize stuff
 	int rc;
+	void *out;
+	
 	FILE *file = fopen(filename, "r");
 	// make sure file opened succesfully
 	check(file != NULL, "Failed to open file %s", filename);
@@ -28,7 +32,7 @@ char* read_file(char *filename, size_t size, int *returncode)
 	rewind(file);
 	
 	// allocate memory for file and read
-	char *out = calloc(length + 1, size); // + 1 for null terminator
+	out = calloc(length + 1, size); // + 1 for null terminator
 	rc = fread(out, size, length, file);
 	// make sure expected number of bytes were read
 	check(rc == length, "Failed to read file %s", filename);
@@ -49,13 +53,33 @@ error:
 	return NULL;
 }
 
+int show_incorrect()
+{
+	int *rc = calloc(1, sizeof(int));
+	char *incorrect = read_file(INCORRECT, sizeof(char), rc);
+	int stackrc = *rc;
+	check(stackrc == 0, "Cannot open incorrect usage file.");
+	
+	printf("\n%s\n", incorrect);
+	free(incorrect);
+	free(rc);
+	return stackrc;
+	
+error:
+	free(incorrect);
+	free(rc);
+	return 1;
+}
+
 int show_help()
 {
 	int *rc = calloc(1, sizeof(int));
 	char *help = read_file(HELP, sizeof(char), rc);
+	int stackrc = *rc;
+	check(stackrc == 0, "Cannot open help file.");
+	
 	printf("\n%s\n", help);
 	free(help);
-	int stackrc = *rc;
 	free(rc);
 	return stackrc;
 
@@ -68,11 +92,46 @@ error:
 int search(char **terms, enum Flag logic)
 {
 	// initialize stuff
+	int i;
 	int *rc = calloc(1, sizeof(int));
-	char *logfind = read_file(LOGFIND, sizeof(char), rc);
-	check(logfind != NULL, "Make sure to create file ~/.logfind");
-	printf("%s contents:\n%s", LOGFIND, logfind);
+	char *logfind;
+	char *filename;
 	
+	// print stuff for debugging
+	printf("Processed args: \n");
+	for (i = 0; terms[i] != NULL; i++)
+	{
+		printf("\t%s\n", terms[i]);
+	}
+	if (logic == And)
+	{
+		printf("Logic flag is and.\n");
+	}
+	if (logic == Or)
+	{
+		printf("Logic flag is or.\n");
+	}
+	printf("\n");
+	
+	// read file, check its good and then print
+	logfind = read_file(LOGFIND, sizeof(char), rc);
+	check(logfind != NULL, "Make sure to create file %s", LOGFIND);
+	printf("%s contents:\n%s\n", LOGFIND, logfind);
+	
+	// now loop through it line by line using strtok and search in each line
+	filename = strtok(logfind, "\n");
+	for (i = 0; filename != NULL; i++)
+	{
+		check(access(filename, R_OK), "File %s in %s does not exist or cannot be read.\n", filename, LOGFIND);
+		// begin search
+		printf("Beginning search in file %s\n", filename);
+		
+		// end of search
+		printf("Ending search in file %s\n", filename);
+		filename = strtok(NULL, "\n");
+	}
+	
+	// clean up
 	free(rc);
 	free(logfind);
 	return 0;
@@ -131,25 +190,6 @@ int process_args(int argc, char *argv[])
 		rc = show_help();
 		free(searches);
 		return rc;
-	}
-	
-	// now that excess is trimmed, print values
-	printf("Processed args: \n");
-	for (i = 0; i < searches_count; i++)
-	{
-		printf("\t%s\n", searches[i]);
-	}
-	// add final newline
-	printf("\n");
-	
-	// print what logic flag is
-	if (flag == And)
-	{
-		printf("Logic flag is and.\n");
-	}
-	if (flag == Or)
-	{
-		printf("Logic flag is or.\n");
 	}
 	
 	// call search
