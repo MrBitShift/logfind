@@ -21,12 +21,12 @@ char* read_file(char *filename, size_t size, int *returncode)
 	check(file != NULL, "Failed to open file %s", filename);
 	// get the length of the file by moving cursor to end then reading cursor position
 	fseek(file, 0, SEEK_END);
-	long int length = ftell(file) / size;
+	long int length = (ftell(file) / size);
 	// make sure to move cursor back to start
 	rewind(file);
 	
 	// allocate memory for file and read
-	char *out = calloc(length, size);
+	char *out = calloc(length + 1, size); // + 1 for null terminator
 	rc = fread(out, size, length, file);
 	// make sure expected number of bytes were read
 	check(rc == length, "Failed to read file %s", filename);
@@ -50,10 +50,13 @@ int show_help()
 	char *help = read_file(HELP, sizeof(char), rc);
 	printf("\n%s\n", help);
 	free(help);
-	return *rc;
+	int stackrc = *rc;
+	free(rc);
+	return stackrc;
 
 error:
 	free(help);
+	free(rc);
 	return -1;
 }
 
