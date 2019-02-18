@@ -180,26 +180,9 @@ int search(char **terms, enum Flag logic)
 	char *file; // used to store contents of files from logfind
 	int rc; // used to store return codes
 	
-	// print stuff for debugging
-	printf("Processed args: \n");
-	for (i = 0; terms[i] != '\0'; i++)
-	{
-		printf("\t%s\n", terms[i]);
-	}
-	if (logic == And)
-	{
-		printf("Logic flag is and.\n");
-	}
-	if (logic == Or)
-	{
-		printf("Logic flag is or.\n");
-	}
-	printf("\n");
-	
 	// read file, check its good and then print
 	logfind = read_file(LOGFIND, sizeof(char));
 	check(logfind != NULL, "Either %s does not exist or cannot be read.", LOGFIND);
-	printf("%s contents:\n%s\n", LOGFIND, logfind);
 	
 	// change working directory to / so that relative paths are not handled.
 	chdir("/");
