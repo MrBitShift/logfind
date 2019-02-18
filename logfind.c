@@ -82,13 +82,13 @@ error:
 int search_and(char *text, char **terms)
 {
 	// initialize stuff
-	int i;
-	int l;
-	char *line;
+	int i; // used to loop through terms
+	int l; // used to loop through lines
+	char *line; // used to store contents of each line
+	char *rest; // used to store remaining portion of text for strtok_r
 	
-	// make a copy of text since strtok mutilates input
-	char *textcpy = calloc(strlen(text) + 1, sizeof(char)); // + 1 for null terminator
-	strcpy(textcpy, text);
+	// assign rest
+	rest = text;
 	
 	// remember this is and logic so you'll have to know all terms are in this text before printing them
 	for (i = 0; terms[i] != '\0'; i++)
@@ -100,23 +100,21 @@ int search_and(char *text, char **terms)
 	}
 	
 	// File has all terms. Now loop through one term at a time and split by line and search
-	for (i = 0; terms[i] != NULL; i++)
+	for (i = 0; terms[i] != '\0'; i++)
 	{
-		line = strtok(textcpy, "\n");
-		for (l = 0; line != NULL; l++)
+		for (l = 1, line = strtok_r(rest, "\n", &rest); line != NULL; l++, line = strtok_r(rest, "\n", &rest))
 		{
 			char *substring;
 			substring = strstr(line, terms[i]);
 			if (substring == NULL)
 			{
-				break;
+				continue;
 			}
-			size_t column = (size_t)&substring - (size_t)&line;
+			size_t column = (size_t)substring - (size_t)line;
 			printf("Found \"%s\" on line %d column %d\n", terms[i], l, column);
-			line = strtok(NULL, "\n");
 		}
 		// reinitialize
-		strcpy(textcpy, text);
+		rest = text;
 	}
 	
 	// success
@@ -128,18 +126,59 @@ error:
 
 int search_or(char *text, char **terms)
 {
-	printf("Search_or not implemented.");
+	// initialize stuff
+	int i; // used to loop through terms
+	int l; // used to loop through lines
+	char *line; // used to store contents of each line
+	char *rest; // used to store remaining portion of text for strtok_r
+	int success; // used to keep track of whether any terms were made or not.
+	
+	// assign rest
+	rest = text;
+	
+	// assign success to false.
+	success = 0;
+	
+	// now just loop. REMEMBER: it doesn't need all terms so you don't have to check that it does.
+	for (i = 0; terms[i] != '\0'; i++)
+	{
+		for (l = 1, line = strtok_r(rest, "\n", &rest); line != NULL; l++, line = strtok_r(rest, "\n", &rest))
+		{
+			char *substring;
+			substring = strstr(line, terms[i]);
+			if (substring == NULL)
+			{
+				continue;
+			}
+			
+			// it was found. make success true
+			success = 1;
+			size_t column = (size_t)substring - (size_t)line;
+			printf("Found \"%s\" on line %d column %d\n", terms[i], l, column);
+		}
+		// reinitialize
+		rest = text;
+	}
+	
+	if (!success)
+	{
+		goto error;
+	}
+	// success
 	return 0;
+error:
+	return 1;
 }
 
 int search(char **terms, enum Flag logic)
 {
 	// initialize stuff
-	int i;
-	char *logfind;
-	char *filename;
-	char *file;
-	int rc;
+	int i; // used for loops (duh)
+	char *logfind; // used to store contents of LOGFIND
+	char *filename; // used to store filenames extracted from logfind
+	char *rest; // used to store the rest of the contents of logfind for strtok_r
+	char *file; // used to store contents of files from logfind
+	int rc; // used to store return codes
 	
 	// print stuff for debugging
 	printf("Processed args: \n");
@@ -159,21 +198,22 @@ int search(char **terms, enum Flag logic)
 	
 	// read file, check its good and then print
 	logfind = read_file(LOGFIND, sizeof(char));
-	check(logfind != NULL, "Make sure to create file %s", LOGFIND);
+	check(logfind != NULL, "Either %s does not exist or cannot be read.", LOGFIND);
 	printf("%s contents:\n%s\n", LOGFIND, logfind);
 	
-	// change working directory to / so that absolute paths are not handled.
+	// change working directory to / so that relative paths are not handled.
 	chdir("/");
 	
-	// now loop through it line by line using strtok and search in each line
-	filename = strtok(logfind, "\n");
-	for (i = 0; filename != NULL; i++)
+	// set rest to logfind for strtok_r
+	rest = logfind;
+	
+	// now loop through it line by line using strtok_r and search in each line
+	for (i = 0, filename = strtok_r(rest, "\n", &rest); filename != NULL; i++, filename = strtok_r(rest, "\n", &rest))
 	{
 		file = read_file(filename, sizeof(char));
 		if (file == NULL)
 		{
 			printf("The file %s does not exist or cannot be read. Make sure paths are absolute. \nSkipping to next file.\n\n", filename);
-			filename = strtok(NULL, "\n");
 			continue;
 		}
 		// begin search
@@ -190,14 +230,12 @@ int search(char **terms, enum Flag logic)
 		
 		if (rc == 1)
 		{
-			printf("File did not match search.");
+			printf("File did not match the search.\n");
 		}
 		
-		// end of search
+		// end of search in this file
 		printf("Ending search in file %s.\n\n", filename);
 		free(file);
-		// increment to next name in file
-		filename = strtok(NULL, "\n");
 	}
 	
 	// clean up
