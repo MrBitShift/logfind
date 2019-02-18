@@ -1,0 +1,44 @@
+logfind.c: In function ‘search_and’:
+logfind.c:112:11: error: ‘true’ undeclared (first use in this function)
+    while (true)
+           ^~~~
+logfind.c:112:11: note: each undeclared identifier is reported only once for each function it appears in
+logfind.c:88:8: warning: unused variable ‘tmp’ [-Wunused-variable]
+  char *tmp;
+        ^~~
+logfind.c:87:6: warning: unused variable ‘c’ [-Wunused-variable]
+  int c;
+      ^
+logfind.c: In function ‘search’:
+logfind.c:188:9: error: too few arguments to function ‘search_and’
+    rc = search_and(file);
+         ^~~~~~~~~~
+logfind.c:82:5: note: declared here
+ int search_and(char *text, char **terms)
+     ^~~~~~~~~~
+logfind.c:190:21: error: ‘or’ undeclared (first use in this function)
+   else if (logic == or)
+                     ^~
+logfind.c:192:4: error: too few arguments to function ‘search_or’
+    search_or(file);
+    ^~~~~~~~~
+logfind.c:134:5: note: declared here
+ int search_or(char *text, char **terms)
+     ^~~~~~~~~
+logfind.c:146:6: warning: variable ‘rc’ set but not used [-Wunused-but-set-variable]
+  int rc;
+      ^~
+logfind.c: In function ‘process_args’:
+logfind.c:270:1: warning: label ‘error’ defined but not used [-Wunused-label]
+ error:
+ ^~~~~
+logfind.c: In function ‘main’:
+logfind.c:279:1: warning: label ‘error’ defined but not used [-Wunused-label]
+ error:
+ ^~~~~
+logfind.c: In function ‘search_or’:
+logfind.c:137:1: warning: control reaches end of non-void function [-Wreturn-type]
+ }
+ ^
+make[1]: *** [logfind] Error 1
+make: *** [all] Error 2
