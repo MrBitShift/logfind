@@ -9,7 +9,23 @@
 #define HELP_FLAG "--help"
 #define AND_FLAG "-a"
 #define OR_FLAG "-o"
-#define LOGFIND "/home/pi/.logfind"
+
+char* LOGFIND;
+
+void get_logfind()
+{
+	char *homedir = getenv("HOME");
+	char *file = "/.logfind";
+	LOGFIND = calloc(strlen(homedir) + strlen(file) + 1, sizeof(char)); // + 1 for null terminator
+	strcpy(LOGFIND, homedir);
+	strcat(LOGFIND, file);
+}
+
+// initializes global vars.
+int initialize()
+{
+	get_logfind();
+}
 
 enum Flag
 {
@@ -330,6 +346,7 @@ error:
 
 int main(int argc, char *argv[])
 {
+	initialize();
 	process_args(argc, argv);
 	return 0;
 error:
