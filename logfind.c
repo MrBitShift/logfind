@@ -79,6 +79,47 @@ error:
 	return 1;
 }
 
+int contains_and(char *text, char **terms)
+{
+	// initialize stuff
+	int i;
+	
+	// remember this is and logic so you'll have to know all terms
+	for (i = 0; terms[i] != '\0'; i++)
+	{
+		if (strstr(text, terms[i]) == NULL)
+		{
+			goto error;
+		}
+	}
+	// success
+	return 0;
+error:
+	// does not match
+	return 1;
+}
+
+int contains_or(char *text, char **terms)
+{
+	// initialize stuff
+	int i;
+	
+	// remember this is or logic so you don't have to know all terms are in this text
+	for (i = 0; terms[i] != '\0'; i++)
+	{
+		if (strstr(text, terms[i]) == NULL)
+		{
+			goto success;
+		}
+	}
+	
+	// none found: error
+	return 1;
+success:
+	// success
+	return 0;
+}
+
 int search_and(char *text, char **terms)
 {
 	// initialize stuff
@@ -90,13 +131,9 @@ int search_and(char *text, char **terms)
 	// assign rest
 	rest = text;
 	
-	// remember this is and logic so you'll have to know all terms are in this text before printing them
-	for (i = 0; terms[i] != '\0'; i++)
+	if (contains_and(text, terms) != 0)
 	{
-		if (strstr(text, terms[i]) == NULL)
-		{
-			goto error;
-		}
+		goto error;
 	}
 	
 	// File has all terms. Now loop through one term at a time and split by line and search
@@ -131,13 +168,14 @@ int search_or(char *text, char **terms)
 	int l; // used to loop through lines
 	char *line; // used to store contents of each line
 	char *rest; // used to store remaining portion of text for strtok_r
-	int success; // used to keep track of whether any terms were made or not.
 	
 	// assign rest
 	rest = text;
 	
-	// assign success to false.
-	success = 0;
+	if (contains_or(text, terms) != 0)
+	{
+		goto error;
+	}
 	
 	// now just loop. REMEMBER: it doesn't need all terms so you don't have to check that it does.
 	for (i = 0; terms[i] != '\0'; i++)
@@ -150,9 +188,7 @@ int search_or(char *text, char **terms)
 			{
 				continue;
 			}
-			
-			// it was found. make success true
-			success = 1;
+			// it was found. print it
 			size_t column = (size_t)substring - (size_t)line;
 			printf("Found \"%s\" on line %d column %d\n", terms[i], l, column);
 		}
@@ -160,10 +196,6 @@ int search_or(char *text, char **terms)
 		rest = text;
 	}
 	
-	if (!success)
-	{
-		goto error;
-	}
 	// success
 	return 0;
 error:
