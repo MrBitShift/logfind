@@ -107,7 +107,7 @@ int contains_or(char *text, char **terms)
 	// remember this is or logic so you don't have to know all terms are in this text
 	for (i = 0; terms[i] != '\0'; i++)
 	{
-		if (strstr(text, terms[i]) == NULL)
+		if (strstr(text, terms[i]) != NULL)
 		{
 			goto success;
 		}
@@ -252,6 +252,8 @@ int search(char **terms, enum Flag logic)
 		printf("Ending search in file %s.\n\n", filename);
 		free(file);
 	}
+	
+	printf("Search completed.\n");
 	
 	// clean up
 	free(logfind);
