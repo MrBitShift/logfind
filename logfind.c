@@ -3,6 +3,7 @@
 #include <dbg.h>
 #include <string.h>
 #include <unistd.h>
+#include <glob.h>
 
 #define HELP "./.help"
 #define INCORRECT "./.incorrect"
@@ -25,6 +26,7 @@ void get_logfind()
 int initialize()
 {
 	get_logfind();
+	return 0;
 }
 
 enum Flag
@@ -92,6 +94,35 @@ int show_help()
 
 error:
 	free(help);
+	return 1;
+}
+
+int glob_error(const char *path, int number)
+{
+	printf("The path %s does not exist or cannot be expanded. (errno: %s)\n", path, strerror(number));
+	return 0; // return 0 so glob doesn't quit and continues on other paths.
+}
+
+int get_glob(char **patterns, glob_t *buffer)
+{
+	// initialize stuff
+	int flags; // option flags for glob
+	int out;
+	int i;
+	
+	// set values
+	flags = GLOB_TILDE_CHECK;
+	
+	out = glob(patterns[0], flags, glob_error, buffer);
+	for (i = 1; patterns[i] != NULL; i++)
+	{
+		check(out == 0, "Error in get_glob.");
+		out = glob(patterns[i], flags | GLOB_APPEND, glob_error, buffer);
+	}
+	
+	return 0;
+error:
+	globfree(buffer);
 	return 1;
 }
 
@@ -347,7 +378,15 @@ error:
 int main(int argc, char *argv[])
 {
 	initialize();
-	process_args(argc, argv);
+	chdir("/");
+	glob_t *results = calloc(1, sizeof(glob_t));
+	char *pattern[] = {"~/.logfind", "~/*.png"};
+	get_glob(pattern, results);
+	int i;
+	for (i = 0; i < results->gl_pathc; i++)
+	{
+		printf("Result %d: %s\n", i, results->gl_pathv[i]);
+	}
 	return 0;
 error:
 	
