@@ -10,23 +10,91 @@
 #define HELP_FLAG "--help"
 #define AND_FLAG "-a"
 #define OR_FLAG "-o"
+#define LOGFIND_UNFORMATTED "~/.logfind"
 
 char* LOGFIND;
 
-void get_logfind()
+int glob_error(const char *path, int number)
 {
-	char *homedir = getenv("HOME");
-	char *file = "/.logfind";
-	LOGFIND = calloc(strlen(homedir) + strlen(file) + 1, sizeof(char)); // + 1 for null terminator
-	strcpy(LOGFIND, homedir);
-	strcat(LOGFIND, file);
+	printf("The path %s does not exist or cannot be expanded. (errno: %s)\n", path, strerror(number));
+	return 0; // return 0 so glob doesn't quit and continues on other paths.
+}
+
+int get_glob(char **patterns, glob_t *buffer)
+{
+	// initialize stuff
+	int flags; // option flags for glob
+	int out;
+	int i;
+	
+	// set values
+	flags = GLOB_TILDE_CHECK;
+	
+	out = glob(patterns[0], flags, glob_error, buffer);
+	check(out == 0, "Glob failed on pattern %s. (error: %s)", patterns[0], ((out == GLOB_NOSPACE) ? "GLOB_NOSPACE" :
+		(out == GLOB_ABORTED) ? "GLOB_ABORTED" :
+		(out == GLOB_NOMATCH) ? "GLOB_NOMATCH" : "Unidentified error code."
+		));
+	for (i = 1; patterns[i] != NULL; i++)
+	{
+		out = glob(patterns[i], flags | GLOB_APPEND, glob_error, buffer);
+		if (out == GLOB_NOMATCH)
+		{
+			continue;
+		}
+		check(out == 0, "Glob failed on pattern %s. (error: %s)", patterns[i], ((out == GLOB_NOSPACE) ? "GLOB_NOSPACE" :
+			(out == GLOB_ABORTED) ? "GLOB_ABORTED" : "Unidentified error code."
+			));
+	}
+	
+	return 0;
+error:
+	return 1;
+}
+
+int get_logfind()
+{
+	// initialize stuff
+	int rc;
+	int i;
+	glob_t *result;
+	char **unformatted;
+	
+	// set values
+	result = calloc(1, sizeof(glob_t)); // we calloc so that we are not throwing in a null pointer to get_glob()
+	unformatted = calloc(2, sizeof(char*)); // 2 so that there is space for null terminator
+	unformatted[0] = LOGFIND_UNFORMATTED;
+	
+	rc = get_glob(unformatted, result);
+	check(rc == 0, "Error in get_logfind() while trying to expand the path %s.", unformatted[0]);
+	
+	// get length of result
+	for (i = 0; result->gl_pathv[0][i] != '\0'; i++);
+	
+	// assign output to LOGFIND through strcpy
+	LOGFIND = calloc(i + 1, sizeof(char)); // + 1 for null terminator
+	strcpy(LOGFIND, result->gl_pathv[0]);
+	
+	free(unformatted);
+	globfree(result);
+	
+	return 0;
+error:
+	if (result != NULL)
+	{
+		globfree(result);
+	}
+	if (unformatted != NULL)
+	{
+		free(unformatted);
+	}
+	return 1;
 }
 
 // initializes global vars.
 int initialize()
 {
-	get_logfind();
-	return 0;
+	return get_logfind();
 }
 
 enum Flag
@@ -97,32 +165,48 @@ error:
 	return 1;
 }
 
-int glob_error(const char *path, int number)
+int get_logfind_files(char ***out)
 {
-	printf("The path %s does not exist or cannot be expanded. (errno: %s)\n", path, strerror(number));
-	return 0; // return 0 so glob doesn't quit and continues on other paths.
-}
-
-int get_glob(char **patterns, glob_t *buffer)
-{
-	// initialize stuff
-	int flags; // option flags for glob
-	int out;
-	int i;
+	int i; // used for loops (duh)
+	int b; // used to find length of null terminated strings;
+	char *logfind; // used to store contents of LOGFIND
+	char *filename; // used to store individual filenames extracted from logfind
+	char *rest; // used to store the rest of the contents of logfind for strtok_r
+	glob_t *glob_result = calloc(1, sizeof(glob_t)); // store result of glob
 	
-	// set values
-	flags = GLOB_TILDE_CHECK;
+	// read file, check its good and then print
+	logfind = read_file(LOGFIND, sizeof(char));
+	check(logfind != NULL, "Either %s does not exist or cannot be read.", LOGFIND);
 	
-	out = glob(patterns[0], flags, glob_error, buffer);
-	for (i = 1; patterns[i] != NULL; i++)
+	// change working directory to / so that relative paths are not handled.
+	chdir("/");
+	
+	// set rest to logfind for strtok_r
+	rest = logfind;
+	
+	// now loop through it line by line using strtok_r and search in each line
+	for (i = 1, filename = strtok_r(rest, "\n", &rest); filename != NULL; i++, filename = strtok_r(rest, "\n", &rest))
 	{
-		check(out == 0, "Error in get_glob.");
-		out = glob(patterns[i], flags | GLOB_APPEND, glob_error, buffer);
+		*out = realloc(*out, (i + 1) * sizeof(char*)); // + 1 for null. don't worry on first loop this will just act as normal malloc
+		// get filename length
+		for (b = 0; filename[b] != '\0'; b++);
+		(*out)[i - 1] = calloc(b + 1, sizeof(char*)); // + 1 for null
+		strcpy((*out)[i - 1], filename); // strcpy because its safer
+		(*out)[i] = NULL; // make sure to assign null because realloc doesn't clear mem.
 	}
 	
+	// now we have the filenames, glob them
+	check(get_glob(*out, glob_result) == 0, "Error expanding patterns from %s.", LOGFIND);
+	
+	*out = glob_result->gl_pathv;
+	
+	free(logfind);
+	
 	return 0;
+	
 error:
-	globfree(buffer);
+	free(logfind);
+	
 	return 1;
 }
 
@@ -253,26 +337,22 @@ int search(char **terms, enum Flag logic)
 {
 	// initialize stuff
 	int i; // used for loops (duh)
-	char *logfind; // used to store contents of LOGFIND
-	char *filename; // used to store filenames extracted from logfind
-	char *rest; // used to store the rest of the contents of logfind for strtok_r
-	char *file; // used to store contents of files from logfind
 	int rc; // used to store return codes
+	char *logfind; // used to store contents of LOGFIND
+	char **filenames; // used to store filenames returned from get_logfind_files
+	//char *file;
 	
-	// read file, check its good and then print
-	logfind = read_file(LOGFIND, sizeof(char));
-	check(logfind != NULL, "Either %s does not exist or cannot be read.", LOGFIND);
+	filenames = calloc(1, sizeof(char*)); // allocate so we don't pass in a null pointer
+	check(get_logfind_files(&filenames) == 0, "Could not get list of files from %s.", LOGFIND); // get the filenames and check it succeeded
 	
 	// change working directory to / so that relative paths are not handled.
 	chdir("/");
 	
-	// set rest to logfind for strtok_r
-	rest = logfind;
-	
-	// now loop through it line by line using strtok_r and search in each line
-	for (i = 0, filename = strtok_r(rest, "\n", &rest); filename != NULL; i++, filename = strtok_r(rest, "\n", &rest))
+	// now loop through each file
+	for (i = 0; filenames[i] != NULL; i++)
 	{
-		file = read_file(filename, sizeof(char));
+		char *filename = filenames[i];
+		char *file = read_file(filename, sizeof(char));
 		if (file == NULL)
 		{
 			printf("The file %s does not exist or cannot be read. Make sure paths are absolute. \nSkipping to next file.\n\n", filename);
@@ -297,21 +377,17 @@ int search(char **terms, enum Flag logic)
 		
 		// end of search in this file
 		printf("Ending search in file %s.\n\n", filename);
-		free(file);
 	}
 	
 	printf("Search completed.\n");
 	
-	// clean up
-	free(logfind);
 	return 0;
 	
 error:
-	if (file != NULL)
-	{
-		free(file);
-	}
-	free(logfind);
+	//if (file != NULL)
+	//{
+	//	free(file);
+	//}
 	return 1;
 }
 
@@ -377,16 +453,8 @@ error:
 
 int main(int argc, char *argv[])
 {
-	initialize();
-	chdir("/");
-	glob_t *results = calloc(1, sizeof(glob_t));
-	char *pattern[] = {"~/.logfind", "~/*.png"};
-	get_glob(pattern, results);
-	int i;
-	for (i = 0; i < results->gl_pathc; i++)
-	{
-		printf("Result %d: %s\n", i, results->gl_pathv[i]);
-	}
+	check(initialize() == 0, "Operation failed. Exiting.\n");
+	check(process_args(argc, argv) == 0, "Operation failed. Exiting.\n");
 	return 0;
 error:
 	
