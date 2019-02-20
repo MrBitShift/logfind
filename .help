@@ -1,1 +1,1 @@
-USAGE: logfind search_term [-a | -o]
+USAGE: logfind search_term... [-a | -o | --help]

@@ -16,7 +16,7 @@ char* LOGFIND;
 
 int glob_error(const char *path, int number)
 {
-	printf("The path %s does not exist or cannot be expanded. (errno: %s)\n", path, strerror(number));
+	printf("The path \"%s\" does not exist or cannot be expanded. (errno: \"%s\")\n", path, strerror(number));
 	return 0; // return 0 so glob doesn't quit and continues on other paths.
 }
 
@@ -31,15 +31,22 @@ int get_glob(char **patterns, glob_t *buffer)
 	flags = GLOB_TILDE_CHECK;
 	
 	out = glob(patterns[0], flags, glob_error, buffer);
-	check(out == 0, "Glob failed on pattern %s. (error: %s)", patterns[0], ((out == GLOB_NOSPACE) ? "GLOB_NOSPACE" :
-		(out == GLOB_ABORTED) ? "GLOB_ABORTED" :
-		(out == GLOB_NOMATCH) ? "GLOB_NOMATCH" : "Unidentified error code."
-		));
+	if (out == GLOB_NOMATCH)
+	{
+		printf("No filenames match the expression \"%s\". Either it cannot be read, or does not exist.\n\n", patterns[0]);
+	}
+	else
+	{
+		check(out == 0, "Glob failed on pattern %s. (error: %s)", patterns[0], ((out == GLOB_NOSPACE) ? "GLOB_NOSPACE" :
+			(out == GLOB_ABORTED) ? "GLOB_ABORTED" : "Unidentified error code."
+			));
+	}
 	for (i = 1; patterns[i] != NULL; i++)
 	{
 		out = glob(patterns[i], flags | GLOB_APPEND, glob_error, buffer);
 		if (out == GLOB_NOMATCH)
 		{
+			printf("No filenames match the expression \"%s\". Either it cannot be read, or does not exist.\n\n", patterns[i]);
 			continue;
 		}
 		check(out == 0, "Glob failed on pattern %s. (error: %s)", patterns[i], ((out == GLOB_NOSPACE) ? "GLOB_NOSPACE" :
@@ -97,6 +104,12 @@ int initialize()
 	return get_logfind();
 }
 
+// cleans global vars
+void clean()
+{
+	free(LOGFIND);
+}
+
 enum Flag
 {
 	And, Or
@@ -110,7 +123,7 @@ void* read_file(char *filename, size_t size)
 	
 	FILE *file = fopen(filename, "r");
 	// make sure file opened succesfully
-	check(file != NULL, "Failed to open file %s", filename);
+	check(file != NULL, "Failed to open file \"%s\"", filename);
 	// get the length of the file by moving cursor to end then reading cursor position
 	fseek(file, 0, SEEK_END);
 	long int length = (ftell(file) / size);
@@ -121,7 +134,7 @@ void* read_file(char *filename, size_t size)
 	out = calloc(length + 1, size); // + 1 for null terminator
 	rc = fread(out, size, length, file);
 	// make sure expected number of bytes were read
-	check(rc == length, "Failed to read file %s", filename);
+	check(rc == length, "Failed to read file \"%s\"", filename);
 	
 	fflush(file);
 	fclose(file);
@@ -176,7 +189,7 @@ int get_logfind_files(char ***out)
 	
 	// read file, check its good and then print
 	logfind = read_file(LOGFIND, sizeof(char));
-	check(logfind != NULL, "Either %s does not exist or cannot be read.", LOGFIND);
+	check(logfind != NULL, "Either \"%s\" does not exist or cannot be read.", LOGFIND);
 	
 	// change working directory to / so that relative paths are not handled.
 	chdir("/");
@@ -196,7 +209,7 @@ int get_logfind_files(char ***out)
 	}
 	
 	// now we have the filenames, glob them
-	check(get_glob(*out, glob_result) == 0, "Error expanding patterns from %s.", LOGFIND);
+	check(get_glob(*out, glob_result) == 0, "Error expanding patterns from \"%s\".", LOGFIND);
 	
 	*out = glob_result->gl_pathv;
 	
@@ -338,12 +351,11 @@ int search(char **terms, enum Flag logic)
 	// initialize stuff
 	int i; // used for loops (duh)
 	int rc; // used to store return codes
-	char *logfind; // used to store contents of LOGFIND
 	char **filenames; // used to store filenames returned from get_logfind_files
 	//char *file;
 	
 	filenames = calloc(1, sizeof(char*)); // allocate so we don't pass in a null pointer
-	check(get_logfind_files(&filenames) == 0, "Could not get list of files from %s.", LOGFIND); // get the filenames and check it succeeded
+	check(get_logfind_files(&filenames) == 0, "Could not get list of files from \"%s\".", LOGFIND); // get the filenames and check it succeeded
 	
 	// change working directory to / so that relative paths are not handled.
 	chdir("/");
@@ -355,11 +367,11 @@ int search(char **terms, enum Flag logic)
 		char *file = read_file(filename, sizeof(char));
 		if (file == NULL)
 		{
-			printf("The file %s does not exist or cannot be read. Make sure paths are absolute. \nSkipping to next file.\n\n", filename);
+			printf("The file \"%s\" does not exist or cannot be read. Make sure paths are absolute. \nSkipping to next file.\n\n", filename);
 			continue;
 		}
 		// begin search
-		printf("Beginning search in file %s\n", filename);
+		printf("Beginning search in file \"%s\"\n", filename);
 		
 		if (logic == And)
 		{
@@ -376,7 +388,8 @@ int search(char **terms, enum Flag logic)
 		}
 		
 		// end of search in this file
-		printf("Ending search in file %s.\n\n", filename);
+		printf("Ending search in file \"%s\"\n\n", filename);
+		free(file);
 	}
 	
 	printf("Search completed.\n");
@@ -455,8 +468,10 @@ int main(int argc, char *argv[])
 {
 	check(initialize() == 0, "Operation failed. Exiting.\n");
 	check(process_args(argc, argv) == 0, "Operation failed. Exiting.\n");
+	clean();
 	return 0;
 error:
 	
 	return 1;
 }
+ 
